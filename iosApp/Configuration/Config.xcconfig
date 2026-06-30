@@ -5,3 +5,6 @@ PRODUCT_BUNDLE_IDENTIFIER=com.sadvakassov.filament.kmp.filamentKMP$(TEAM_ID)
 
 CURRENT_PROJECT_VERSION=1
 MARKETING_VERSION=1.0
+
+// iOS A2: expose the ObjC++ Filament shim to Swift without touching Build Settings in the GUI.
+SWIFT_OBJC_BRIDGING_HEADER=$(SRCROOT)/iosApp/iosApp-Bridging-Header.h
