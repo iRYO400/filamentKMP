@@ -21,10 +21,19 @@ scene", not "a pretty card".
   Xcode). Don't spend effort on iOS until Xcode is available.
 
 ## Hard environment facts
-- The owner builds/runs in **Android Studio / IntelliJ on macOS** — that works.
-- An automated/sandbox shell here has **no network and no aapt2/Kotlin-Native cache**, so
-  `./gradlew` builds **fail in-sandbox**. Don't trust "it builds" from here — verification
-  comes from the owner running it. Common+Android Kotlin is confirmed compiling (app ran).
+- The owner builds/runs in **Android Studio / IntelliJ on macOS**.
+- **Build environment varies by machine.** Some setups have full network + warm Gradle
+  caches and build fine from the shell; others are network/cache-restricted, where
+  `./gradlew` fails to resolve and "it builds" can't be trusted. **At the start of a
+  session, before relying on or claiming a build result, ask the owner which environment
+  this is** (open ↔ restricted) — it's a deliberate convention to avoid guessing.
+- When the shell *can* build, verify with these task names (new
+  `com.android.kotlin.multiplatform.library` plugin — NOT the old `compileDebugKotlinAndroid`):
+  - `./gradlew :shared:compileAndroidMain` — common+Android Kotlin
+  - `./gradlew :androidApp:assembleDebug` — full APK
+  - `./gradlew :shared:compileCommonMainKotlinMetadata` — shared code for the iOS side
+- Harmless noise on a working build: `[CXX1101] NDK ... ndk-bundle did not have a
+  source.properties file` (empty `ndk-bundle` dir) — doesn't fail the build.
 
 ## Build & run (Android)
 ```bash
