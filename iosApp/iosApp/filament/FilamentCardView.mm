@@ -75,8 +75,30 @@ using namespace utils;
         _disposed = NO;
         [self setupMetalView];
         [self setupFilament];
+        [self registerLifecycleObservers];
     }
     return self;
+}
+
+#pragma mark - App lifecycle (pause rendering when not visible)
+
+// iOS counterpart of Android's ON_RESUME/ON_PAUSE wiring. Metal must not render to a backgrounded
+// layer (the GPU access is revoked → command-buffer errors / termination), so we pause the
+// MTKView's internal display link in the background and resume it on return.
+- (void)registerLifecycleObservers {
+    NSNotificationCenter* nc = [NSNotificationCenter defaultCenter];
+    [nc addObserver:self selector:@selector(appDidEnterBackground)
+               name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [nc addObserver:self selector:@selector(appWillEnterForeground)
+               name:UIApplicationWillEnterForegroundNotification object:nil];
+}
+
+- (void)appDidEnterBackground {
+    if (!_disposed) _mtkView.paused = YES;
+}
+
+- (void)appWillEnterForeground {
+    if (!_disposed) _mtkView.paused = NO;
 }
 
 - (void)setupMetalView {
@@ -221,6 +243,7 @@ using namespace utils;
 - (void)dispose {
     if (_disposed) return;
     _disposed = YES;
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
     _mtkView.paused = YES;
     _mtkView.delegate = nil;
 

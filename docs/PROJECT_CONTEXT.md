@@ -151,8 +151,10 @@ Gotchas learned: the project uses **Xcode-16 file-system synchronized groups**, 
 `iosApp/iosApp/` are auto-included in the target (no pbxproj entries, no manual "add to target");
 "Add Files" can mistakenly add workspace-level refs (harmless). A3 needed **zero** iOS-specific
 code — the shared `CardReducer` drives the feel and the shim reads `yaw` per frame.
-**Phase A is now complete on both platforms.** Open follow-up: wire iOS lifecycle pause/resume
-(Android pauses its Choreographer on ON_PAUSE; iOS `MTKView` renders continuously).
+**Phase A is now complete on both platforms.** iOS lifecycle pause/resume is now wired too:
+`FilamentCardView` observes `UIApplicationDidEnterBackground/WillEnterForeground` and toggles
+`MTKView.paused` (mirrors Android ON_PAUSE/ON_RESUME; also prevents Metal rendering to a
+backgrounded layer), removing observers in `dispose`.
 
 ## 7. A2 as-built — real Filament on Android (✅ DONE, commit `c76cc0f`)
 Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):

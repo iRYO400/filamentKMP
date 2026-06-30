@@ -36,8 +36,9 @@ scene", not "a pretty card".
   MetalKit linked in `Config.xcconfig`; files auto-included via Xcode-16 synchronized groups.
 - **🎉 Phase A complete on BOTH platforms.** The core goal is proven: one shared state drives a
   real native 3D engine + reactive feel on Android *and* iOS through one seam.
-- **iOS small follow-up (not blocking):** lifecycle pause/resume isn't wired (Android pauses its
-  Choreographer on ON_PAUSE; iOS `MTKView` keeps rendering, `dispose()` runs on Compose dispose).
+- **iOS lifecycle — wired.** `FilamentCardView` observes `UIApplication` background/foreground
+  notifications and toggles `MTKView.paused` (iOS counterpart of Android's ON_PAUSE/ON_RESUME;
+  also avoids Metal rendering to a backgrounded layer). Observers removed in `dispose`.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.
