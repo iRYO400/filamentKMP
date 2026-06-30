@@ -7,4 +7,16 @@
    <FileRef
       location = "group:Pods/Pods.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:iosApp/filament/FilamentCardView.h">
+   </FileRef>
+   <FileRef
+      location = "group:iosApp/CardSceneBridgeImpl.swift">
+   </FileRef>
+   <FileRef
+      location = "group:iosApp/iosApp-Bridging-Header.h">
+   </FileRef>
+   <FileRef
+      location = "group:iosApp/filament/FilamentCardView.mm">
+   </FileRef>
 </Workspace>
