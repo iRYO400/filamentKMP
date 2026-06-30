@@ -1,30 +1,72 @@
 package com.sadvakassov.filament.kmp.scene
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.coroutines.isActive
 import platform.CoreGraphics.CGAffineTransformMakeRotation
 import platform.CoreGraphics.CGAffineTransformScale
 import platform.UIKit.UIColor
 import platform.UIKit.UIView
 
 /**
- * A1 iOS placeholder. Embeds a native [UIView] via `UIKitView` and feeds it the latest
- * [CardState] through the `update` lambda. `interactionMode = null` makes the view passive so
- * touches pass through to the Compose gesture detector in `CardStage` (Compose MP 1.11.1
- * replaced the old `isInteractive = false` flag with this).
+ * iOS `actual` scene. Two paths, chosen at runtime by whether Swift injected a [CardSceneBridge]
+ * (see [com.sadvakassov.filament.kmp.MainViewController]):
  *
- * Only stable, low-risk UIKit/CoreGraphics calls are used. In A2 this `factory` is replaced
- * by a Metal-backed Filament view supplied from Swift (injected via DI), driven by the same
- * [controller].
+ *  - **A2 real Filament** — when a bridge is present: host the native Metal/Filament [UIView] in
+ *    `UIKitView` and push the latest transform once per frame (no Compose recompose per frame,
+ *    matching Android's Choreographer-driven [FilamentRenderer]). The shim's own `CADisplayLink`
+ *    does the drawing.
+ *  - **2D placeholder** — when no bridge is wired yet: the original A1 `UIView` that rotates via
+ *    `CGAffineTransform`. Keeps the app runnable while the native side is being set up.
+ *
+ * Either way `interactionMode = null` makes the native view passive so touches fall through to the
+ * Compose gesture detector in `CardStage`.
  */
 @OptIn(ExperimentalForeignApi::class)
 @Composable
 actual fun CardScene(controller: CardController, modifier: Modifier) {
+    val bridge = IosCardScene.bridge
+    if (bridge != null) {
+        FilamentCardScene(controller, bridge, modifier)
+    } else {
+        PlaceholderCardScene(controller, modifier)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+private fun FilamentCardScene(controller: CardController, bridge: CardSceneBridge, modifier: Modifier) {
+    // Push the latest snapshot every frame straight into the shim (cheap setter); the engine's
+    // CADisplayLink renders whatever is current. Mirrors the renderer-reads-snapshot model.
+    LaunchedEffect(bridge, controller) {
+        while (isActive) {
+            withFrameNanos { }
+            val s = controller.state.value
+            bridge.update(s.yaw, s.pitch, s.scale)
+        }
+    }
+    DisposableEffect(bridge) {
+        onDispose { bridge.dispose() }
+    }
+    UIKitView(
+        factory = { bridge.makeView() },
+        modifier = modifier,
+        update = {},
+        properties = UIKitInteropProperties(interactionMode = null),
+    )
+}
+
+@OptIn(ExperimentalForeignApi::class)
+@Composable
+private fun PlaceholderCardScene(controller: CardController, modifier: Modifier) {
     val state by controller.state.collectAsState()
     UIKitView(
         factory = {
