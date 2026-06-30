@@ -1,0 +1,149 @@
+# filamentKMP — deep project context
+
+> Companion to root `CLAUDE.md`. This is the full design record: goal, decisions, milestones,
+> architecture, the Filament-sources handoff, and the next-step (A2) plan. A fresh session
+> should be able to resume from here without re-deriving anything.
+
+---
+
+## 1. Goal & priorities
+
+Demo (non-commercial; for learning + building a reusable pipeline):
+- **KMP** for **iOS + Android**, UI in **Compose Multiplatform**.
+- On screen: a 3D "Pokémon-style" card — rotate by touch, tap → responsive animation/feedback,
+  holographic sheen across the surface.
+- Compose UI (HUD, buttons, overlays) **interacts** with the 3D through one shared state.
+
+**Priorities (do not misread):**
+- Primary = a **reusable Filament ↔ KMP/Compose interop pipeline**. The card is only a vehicle
+  to exercise every hard seam.
+- A **beautiful visual is also a goal, just a later phase** (deferred, not dropped). First prove
+  the seam works and is smooth on a minimal visual; pile on visuals afterward, on top of the
+  working pipeline. "Adding visuals = swapping material/model, not rearchitecting" is itself the
+  proof the pipeline is good.
+- **Success criterion:** "I understand every seam and can reproduce it in a real app by swapping
+  the scene" — not "a pretty card".
+
+## 2. Decisions (locked)
+1. **Sequencing: Android-first → then iOS.** Order of work, not scope — the foundation must run
+   on both. Android first (trivial Maven, all Kotlin) to debug the architecture/state contract on
+   the easy platform, then port to iOS where the effort goes to the hard part (`.mm` shim).
+2. **Starter geometry: procedural quad** (+ slight thickness) — focus on the seam and material,
+   no external modeling. glTF comes later (Phase B).
+3. **Starter effect: tilt-follow + basic view-angle sheen** — exercises the full data path
+   (gesture → CardState → TransformManager + material uniform → frame). Rich holographic foil is
+   Phase B.
+
+## 3. Milestones & status
+
+**Phase A — Foundation** (prove the seam is alive, smooth, cleanly separated):
+- **A1 — Runnable skeleton + architecture. ✅ DONE (runs on Android).**
+  KMP wiring, `CardController`/`CardState`/`CardReducer`, `expect CardScene` + `actual` on both
+  platforms. App launches; gestures + frame loop + two-way HUD binding work. *Visual is a 2D
+  placeholder, not Filament.*
+- **A2 — Real basic geometry renders. ⏳ NEXT (Android).** Filament renderer on Android
+  (procedural quad + light + camera), reading the same controller. See §7.
+- **A3 — Geometry reacts to input through the engine.** Smooth tilt/rotation + spring recenter
+  driven by the shared state, no jank. (Largely already modeled in `CardReducer`; A3 = make the
+  *engine* consume it and tune feel.)
+- *(then port A2/A3 to iOS once Xcode is available — see §6.)*
+
+**Phase B — Content & visual** (only after a working foundation):
+- **B1 — glTF pipeline.** Swap procedural geometry for a model via `gltfio`. No architecture
+  change.
+- **B2 — Visual polish.** Holographic foil `.mat`, IBL environment, bloom/AA, tap particles +
+  haptics. "Looks like a production demo."
+
+## 4. Architecture
+
+```
+┌───────────────────────── COMPOSE UI (commonMain) ─────────────────────────┐
+│ HUD / buttons / overlays — plain Compose MP, bound to CardController.state │
+└───────────────┬───────────────────────────────────┬──────────────────────┘
+                │ reads/writes state                  │ expect CardScene()
+                ▼                                      ▼
+┌───────────────────────────┐          ┌──────────────────────────────────┐
+│ SHARED STATE/LOGIC (common)│          │ PLATFORM RENDER (actual)          │
+│ CardState (snapshot)       │◄─────────┤ Android: AndroidView(View)        │
+│ CardReducer (pure + physics)│          │ iOS:     UIKitView(UIView)        │
+│ CardController (StateFlow)  │          │ renderer reads state each frame   │
+│ CardStage (gestures + tick) │          └──────────────────────────────────┘
+└───────────────────────────┘                         │
+                                                       ▼
+                                         FILAMENT ENGINE (native, A2+)
+                                         Engine→Renderer→View→Scene→Camera
+```
+
+**Data flow:** `gesture → CardController (StateFlow) → renderer reads snapshot each frame`.
+Gestures are captured in shared `CardStage` (not the native view) so a single state drives both
+the 3D and the UI. `StateFlow.value` is an atomic snapshot — safe to read from a render thread.
+
+**expect/actual seam:**
+```kotlin
+@Composable expect fun CardScene(controller: CardController, modifier: Modifier = Modifier)
+```
+Android `actual` → `AndroidView`; iOS `actual` → `UIKitView` (new API
+`androidx.compose.ui.viewinterop.UIKitView`, `properties = UIKitInteropProperties(isInteractive = false)`
+so touches pass through to the Compose gesture detector).
+
+## 5. Module / source layout (as generated by the KMP wizard)
+- `shared/` — KMP library (`com.android.kotlin.multiplatform.library`). Holds Compose UI + logic.
+  - `commonMain/.../{scene,ui,math}` — the reusable core.
+  - `androidMain/.../scene/CardScene.android.kt` — Android actual.
+  - `iosMain/.../scene/CardScene.ios.kt` — iOS actual.
+  - iOS framework: `binaries.framework { baseName = "Shared"; isStatic = true }`, targets
+    `iosArm64` + `iosSimulatorArm64` (no x64 sim).
+- `androidApp/` — `com.android.application`, depends on `:shared`, hosts `MainActivity { App() }`.
+- `iosApp/` — plain Xcode project (`ContentView.swift` → `MainViewControllerKt.MainViewController()`).
+  **No CocoaPods yet** — wizard used a direct static framework, not the `kotlin.cocoapods` plugin.
+  `Info.plist` already sets `CADisableMinimumFrameDurationOnPhone` (needed for high-FPS Compose).
+
+## 6. iOS plan (deferred — no Xcode on owner's machine yet)
+Filament on iOS is always native C++; Swift can't call it directly → an **Objective-C++ (`.mm`)
+shim** wrapping Filament in a `UIView` (CAMetalLayer + `CADisplayLink`), exposing a clean ObjC
+interface. Bridge into Compose:
+1. CocoaPods in the **Xcode `iosApp` project** for `pod 'Filament'` (NOT the gradle cocoapods
+   plugin — keep K/N unaware of Filament).
+2. Kotlin can't see classes from the app target → Swift implements a **view factory** and injects
+   it into `MainViewController()` (DI); the iOS `actual CardScene` puts the injected view into
+   `UIKitView`.
+3. Push state into the shim via a small bridge interface subscribed to `controller.state`.
+
+Until then, the iOS `actual` is a pure-Kotlin placeholder `UIView` and is **not compiled**.
+
+## 7. A2 plan — real Filament on Android (next step)
+Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):
+- Deps: `com.google.android.filament:filament-android:1.72.0`,
+  `com.google.android.filament:filamat-android:1.72.0` (runtime material builder),
+  `com.google.android.filament:filament-utils-android:1.72.0` (helpers/UiHelper).
+  (`gltfio-android` only in Phase B.)
+- Only `CardScene.android.kt` changes; commonMain untouched.
+- `FilamentRenderer` (Kotlin): `Engine` → `SurfaceView` + `UiHelper` → `SwapChain`,
+  `Renderer`/`View`/`Scene`/`Camera`; procedural quad (VertexBuffer/IndexBuffer); a simple lit
+  material built at runtime via `filamat` `MaterialBuilder`; one light.
+- `Choreographer` frame loop reads `controller.state.value` and applies yaw/pitch/scale via
+  `TransformManager` (now real 3D). `Engine.destroy()` on view detach.
+- Acceptance: a real 3D card renders and reacts to the same drag/tap, no jank.
+
+## 8. Filament-sources handoff (for a second Claude opened in `google/filament`)
+That repo compiles slowly — **extract artifacts/knowledge, don't rebuild the engine.** Useful
+outputs for later phases:
+- Phase B material toolchain: exact `matc` flags to compile `card.mat` → `card.filamat` for
+  mobile across Metal + GL/Vulkan; `cmgen` to turn an `.hdr` into IBL (`*_ibl.ktx`) + skybox.
+  Tools must come from the **1.72.0** release (must match runtime).
+- A holographic `.mat` draft (view-direction/fresnel based) referencing `samples/materials/`.
+- iOS `.mm` skeleton based on `ios/samples/` (gltf-viewer / hello-pbr): CAMetalLayer setup,
+  `createSwapChain`, `CADisplayLink` loop, glTF + IBL load; plus the pod's lib/link-flag list.
+Note: for A2 (Android basic quad) none of this is required — `filamat-android` builds the
+material at runtime.
+
+## 9. Versions
+Kotlin 2.4.0 · Compose MP 1.11.1 · AGP 9.0.1 · coroutines 1.9.0 · minSdk 24 / compileSdk 36 ·
+Filament 1.72.0 (planned) · package `com.sadvakassov.filament.kmp`.
+
+## 10. Gotchas / lessons
+- In-sandbox `./gradlew` builds fail (no network → no aapt2, no Kotlin/Native dist). Verification
+  must come from the owner's IDE run. App ran on Android ⇒ common+android Kotlin compiles.
+- A1's on-screen card is a **2D Canvas fake** (yaw squeezes width via `|cos|`, pitch tilts) — it
+  exists only to prove the seam; do not mistake it for Filament output.
+- Old `androidx.compose.ui.interop.UIKitView` is deprecated → use `androidx.compose.ui.viewinterop`.
