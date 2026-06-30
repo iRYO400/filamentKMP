@@ -59,7 +59,8 @@ Demo (non-commercial; for learning + building a reusable pipeline):
   (`:shared:testAndroidHostTest`, all green) and approved on-device; tunables left at current
   values. **Phase A foundation is complete.** Next: either Phase B visual polish, or port
   A2/A3 to iOS once Xcode is available (§6).
-- *(then port A2/A3 to iOS once Xcode is available — see §6.)*
+- **iOS A2/A3 — ✅ DONE** (Filament via Metal/MTKView, confirmed on simulator; A3 feel inherited
+  from shared `CardReducer` for free). **Phase A complete on Android + iOS.** See §6.
 
 **Phase B — Content & visual** (only after a working foundation):
 - **B1 — glTF pipeline.** Swap procedural geometry for a model via `gltfio`. No architecture
@@ -139,9 +140,19 @@ hand-rolled `CADisplayLink`).
 `brew install cocoapods` + UTF-8 exports in `~/.zprofile`). `pod install` succeeded and confirmed
 **`pod 'Filament' 1.72.0` exists** (the version-pin risk is gone); it vendors xcframeworks
 (arm64 + sim) for the whole set (filament/filamat/gltfio/image/…). `.xcworkspace` + `Podfile.lock`
-committed; `Pods/` (~88MB) is gitignored — reproduce with `pod install`. Bridging header is wired
-via `Config.xcconfig`, so the **only** remaining manual step is adding the 4 shim files to the
-`iosApp` target in Xcode, then Run on arm64.
+committed; `Pods/` (~88MB) is gitignored — reproduce with `pod install`.
+
+**iOS A2 + A3 — ✅ DONE, confirmed on the iOS simulator (iPhone 17 Pro).** Green Filament quad on
+dark navy, real perspective turntable on drag, live HUD, flick-to-spin inertia. Build fixups that
+were actually needed (vs the generated guesses): **none in the `.mm`** — the Filament 1.72.0 C++
+API matched as written; the only real issue was **linking MetalKit** (the pod links Metal, not
+MetalKit) → added `-framework MetalKit -framework Metal` via `OTHER_LDFLAGS` in `Config.xcconfig`.
+Gotchas learned: the project uses **Xcode-16 file-system synchronized groups**, so shim files in
+`iosApp/iosApp/` are auto-included in the target (no pbxproj entries, no manual "add to target");
+"Add Files" can mistakenly add workspace-level refs (harmless). A3 needed **zero** iOS-specific
+code — the shared `CardReducer` drives the feel and the shim reads `yaw` per frame.
+**Phase A is now complete on both platforms.** Open follow-up: wire iOS lifecycle pause/resume
+(Android pauses its Choreographer on ON_PAUSE; iOS `MTKView` renders continuously).
 
 ## 7. A2 as-built — real Filament on Android (✅ DONE, commit `c76cc0f`)
 Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):

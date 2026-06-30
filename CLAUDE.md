@@ -27,15 +27,17 @@ scene", not "a pretty card".
   `commonMain` (renderer untouched). Covered by 5 `commonTest` cases
   (`./gradlew :shared:testAndroidHostTest`). Feel approved as-is — the tunables
   (`SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer`) are left at current values.
-  **Phase A complete.**
-- **iOS A2 — IN PROGRESS.** Kotlin seam DONE & verified (`CardSceneBridge` injected via
-  `MainViewController(bridge)`; `CardScene.ios` hosts the native `UIView`, pushes the transform
-  per frame, falls back to the 2D placeholder when no bridge). Compiles on
-  `iosSimulatorArm64`+`iosArm64`. Native Filament shim (`FilamentCardView.h/.mm` ObjC++ + Metal,
-  `CardSceneBridgeImpl.swift`, `Podfile`) is **generated but unbuilt** — owner wires it in Xcode
-  per `iosApp/IOS_A2_SETUP.md` (pod install, add files, bridging header, C++17/libc++) and reports
-  build errors to fix iteratively. Engine lives in Swift; `commonMain` untouched. **Xcode
-  availability is machine-dependent** (see env facts) — confirm at session start.
+- **iOS A2 + A3 — DONE & confirmed on the iOS simulator (iPhone 17 Pro).** Real Filament renders
+  (green quad on dark navy, true perspective turntable on drag) and the A3 feel — flick-to-spin
+  inertia, recenter, tap pulse — works **for free**: no iOS-specific physics, the shared
+  `CardReducer` drives it and `FilamentCardView` reads `yaw` each frame. Engine lives in Swift
+  (`FilamentCardView.h/.mm` ObjC++/Metal in an `MTKView`), injected via
+  `MainViewController(bridge)`; `commonMain` untouched. Built via CocoaPods (`pod 'Filament' 1.72.0`);
+  MetalKit linked in `Config.xcconfig`; files auto-included via Xcode-16 synchronized groups.
+- **🎉 Phase A complete on BOTH platforms.** The core goal is proven: one shared state drives a
+  real native 3D engine + reactive feel on Android *and* iOS through one seam.
+- **iOS small follow-up (not blocking):** lifecycle pause/resume isn't wired (Android pauses its
+  Choreographer on ON_PAUSE; iOS `MTKView` keeps rendering, `dispose()` runs on Compose dispose).
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.
