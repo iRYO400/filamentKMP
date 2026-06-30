@@ -21,12 +21,13 @@ scene", not "a pretty card".
   double-sided quad, **no lighting/PBR/thickness yet** (those are Phase B). Deps added:
   `filament-android` + `filamat-android` (runtime material via `MaterialBuilder`);
   `filament-utils-android` was NOT needed (UiHelper/DisplayHelper live in `filament-android`).
-- **Phase A / A3 — IMPLEMENTED, awaiting on-device feel check.** Added flick-to-spin yaw
-  inertia: `CardState` carries `yawVelocity`; `CardReducer.step` measures angular speed while
-  dragging and coasts yaw with friction on release (catch-to-stop on re-grab). Pitch still
-  exponentially recenters. All in `commonMain` (renderer untouched). Covered by 5 `commonTest`
-  cases (`./gradlew :shared:testAndroidHostTest`). **Owner: run it and judge the feel** — tune
-  `SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer` if it's too floaty or too stiff.
+- **Phase A / A3 — DONE & confirmed on-device.** Flick-to-spin yaw inertia: `CardState` carries
+  `yawVelocity`; `CardReducer.step` measures angular speed while dragging and coasts yaw with
+  friction on release (catch-to-stop on re-grab). Pitch still exponentially recenters. All in
+  `commonMain` (renderer untouched). Covered by 5 `commonTest` cases
+  (`./gradlew :shared:testAndroidHostTest`). Feel approved as-is — the tunables
+  (`SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer`) are left at current values.
+  **Phase A complete.**
 - **iOS — deferred.** Code (`CardScene.ios.kt`) is written but **not built** (owner has no
   Xcode). Don't spend effort on iOS until Xcode is available.
 

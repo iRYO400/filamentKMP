@@ -49,15 +49,16 @@ Demo (non-commercial; for learning + building a reusable pipeline):
   light** (clear two-sided card without a tangent frame; lit/PBR → Phase B); only
   `filament-android` + `filamat-android` deps were needed (`filament-utils-android` not used).
   See §7 for the as-built record.
-- **A3 — Geometry reacts to input through the engine. 🛠 IMPLEMENTED (awaiting on-device feel).**
+- **A3 — Geometry reacts to input through the engine. ✅ DONE (confirmed on-device).**
   Flick-to-spin inertia added purely in `commonMain`: `CardState.yawVelocity` (+ internal
   `prevYaw`); `CardReducer.step` measures yaw speed while pressed and, on release, coasts yaw with
   exponential friction (`SPIN_FRICTION`), clamped by `MAX_SPIN`, snapping to rest below `MIN_SPIN`.
   `pressStart` zeroes velocity (catch-to-stop) and seeds `prevYaw`. Pitch still recenters via
   `approach`. Renderer untouched — it already reads `yaw` each frame, so inertia "just works".
   HUD shows live `spinning N°/s`. Verified by 5 pure `commonTest` cases
-  (`:shared:testAndroidHostTest`, all green). Remaining: owner judges feel on-device and we tune
-  the three constants. Next after that: port A2/A3 to iOS once Xcode is available (§6).
+  (`:shared:testAndroidHostTest`, all green) and approved on-device; tunables left at current
+  values. **Phase A foundation is complete.** Next: either Phase B visual polish, or port
+  A2/A3 to iOS once Xcode is available (§6).
 - *(then port A2/A3 to iOS once Xcode is available — see §6.)*
 
 **Phase B — Content & visual** (only after a working foundation):
