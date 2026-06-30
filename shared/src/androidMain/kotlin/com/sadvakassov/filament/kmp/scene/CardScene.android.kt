@@ -1,70 +1,51 @@
 package com.sadvakassov.filament.kmp.scene
 
-import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
-import android.view.View
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlin.math.abs
-import kotlin.math.cos
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 /**
- * A1 Android placeholder. Embeds a native [View] via `AndroidView` and feeds it the latest
- * [CardState] through the `update` lambda (re-invoked whenever the collected state changes).
+ * A2 Android actual: embeds a real Filament-backed [android.view.SurfaceView] via `AndroidView`.
  *
- * The drawing is throwaway pseudo-3D — its only job is to prove the seam: a real native view
- * lives in the Compose tree and visibly reacts to the shared state. In A2 this `factory`
- * returns a Filament `SurfaceView` instead, driven by the same [controller].
+ * The renderer reads [controller].state every frame on its own Choreographer loop (no Compose
+ * recomposition per frame), so gestures captured in shared `CardStage` flow straight into the
+ * 3D scene. Engine lifecycle is tied to the composition + host lifecycle:
+ *  - resume/pause the frame loop with ON_RESUME/ON_PAUSE,
+ *  - destroy the engine when the composable leaves.
  */
 @Composable
 actual fun CardScene(controller: CardController, modifier: Modifier) {
-    val state by controller.state.collectAsState()
+    val renderer = remember { RendererHolder() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     AndroidView(
-        factory = { ctx -> CardPlaceholderView(ctx) },
+        factory = { ctx -> FilamentRenderer(ctx, controller).also { renderer.value = it }.surfaceView },
         modifier = modifier,
-        update = { view -> view.render(state) },
     )
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> renderer.value?.resume()
+                Lifecycle.Event.ON_PAUSE -> renderer.value?.pause()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            renderer.value?.destroy()
+            renderer.value = null
+        }
+    }
 }
 
-private class CardPlaceholderView(context: Context) : View(context) {
-    private var state = CardState()
-
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF5B5BD6.toInt() }
-    private val fillPressed = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFE85AAD.toInt() }
-    private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 6f
-        color = 0x66FFFFFF
-    }
-    private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xCCFFFFFF.toInt()
-        textSize = 36f
-        textAlign = Paint.Align.CENTER
-    }
-
-    fun render(newState: CardState) {
-        state = newState
-        invalidate()
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        val w = width * 0.92f
-        val h = height * 0.92f
-        canvas.save()
-        canvas.translate(width / 2f, height / 2f)
-        canvas.scale(state.scale, state.scale)
-        // fake turntable: yaw squeezes width (|cos|), pitch tilts the card
-        canvas.scale(abs(cos(state.yaw)).coerceAtLeast(0.2f), 1f)
-        canvas.rotate(state.pitch * 28f)
-        val rect = RectF(-w / 2f, -h / 2f, w / 2f, h / 2f)
-        canvas.drawRoundRect(rect, 36f, 36f, if (state.isPressed) fillPressed else fill)
-        canvas.drawRoundRect(rect, 36f, 36f, border)
-        canvas.drawText("Filament A2", 0f, 14f, text)
-        canvas.restore()
-    }
+/** Tiny mutable holder so the factory result is reachable from the DisposableEffect. */
+private class RendererHolder {
+    var value: FilamentRenderer? = null
 }

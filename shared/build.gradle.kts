@@ -37,6 +37,9 @@ kotlin {
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
+            // Filament: runtime engine + runtime material builder (no matc / no source build)
+            implementation(libs.filament.android)
+            implementation(libs.filamat.android)
         }
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
