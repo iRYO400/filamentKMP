@@ -17,3 +17,7 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+
+# CocoaPods: commit Podfile + Podfile.lock + the .xcworkspace, but not the ~88MB of
+# vendored pods. Reproduce with `pod install` (see iosApp/IOS_A2_SETUP.md).
+Pods/

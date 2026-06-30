@@ -135,6 +135,14 @@ hand-rolled `CADisplayLink`).
   builds on arm64. The `.mm` couldn't be shell-compiled — expect minor first-build fixups
   (filamat `build()` arg, `Package` getters, `createSwapChain` cast); the seam won't change.
 
+**Env + pods bring-up — DONE (this session):** `kdoctor` clean (Xcode ✓, CocoaPods ✓ after
+`brew install cocoapods` + UTF-8 exports in `~/.zprofile`). `pod install` succeeded and confirmed
+**`pod 'Filament' 1.72.0` exists** (the version-pin risk is gone); it vendors xcframeworks
+(arm64 + sim) for the whole set (filament/filamat/gltfio/image/…). `.xcworkspace` + `Podfile.lock`
+committed; `Pods/` (~88MB) is gitignored — reproduce with `pod install`. Bridging header is wired
+via `Config.xcconfig`, so the **only** remaining manual step is adding the 4 shim files to the
+`iosApp` target in Xcode, then Run on arm64.
+
 ## 7. A2 as-built — real Filament on Android (✅ DONE, commit `c76cc0f`)
 Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):
 - Deps actually added: `com.google.android.filament:filament-android:1.72.0` +
