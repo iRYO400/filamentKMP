@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import com.sadvakassov.filament.kmp.getPlatform
 import com.sadvakassov.filament.kmp.math.toDegrees
 import com.sadvakassov.filament.kmp.scene.CardController
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -42,7 +43,7 @@ fun CardHud(controller: CardController, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            "Filament KMP · A1 skeleton",
+            "Filament KMP · A3 feel",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -60,7 +61,11 @@ fun CardHud(controller: CardController, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurface,
         )
         Text(
-            if (state.isPressed) "dragging…" else "idle",
+            when {
+                state.isPressed -> "dragging…"
+                abs(state.yawVelocity) > 0.05f -> "spinning ${state.yawVelocity.toDegrees().roundToInt()}°/s"
+                else -> "idle"
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.primary,
         )

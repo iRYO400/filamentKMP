@@ -1,6 +1,7 @@
 package com.sadvakassov.filament.kmp.scene
 
 import com.sadvakassov.filament.kmp.math.approach
+import kotlin.math.abs
 
 /**
  * All [CardState] transitions live here as pure functions — no engine, no Compose, no I/O.
@@ -26,7 +27,17 @@ object CardReducer {
     /** How fast the tap pulse relaxes back to scale 1 (1/seconds). */
     private const val SCALE_SPEED: Float = 10f
 
-    fun pressStart(s: CardState): CardState = s.copy(isPressed = true)
+    /** Upper bound on flick speed (rad/s) so a fast swipe can't launch the card into a blur. */
+    const val MAX_SPIN: Float = 12f
+    /** How fast yaw inertia bleeds off after release (1/seconds): higher = stops sooner. */
+    private const val SPIN_FRICTION: Float = 2.6f
+    /** Below this |velocity| (rad/s) inertia snaps to rest, so the card doesn't crawl forever. */
+    private const val MIN_SPIN: Float = 0.05f
+
+    fun pressStart(s: CardState): CardState =
+        // Grabbing the card catches it: stop any inertia and seed the velocity estimator at the
+        // current angle so the first frame of dragging can't read a bogus jump as huge speed.
+        s.copy(isPressed = true, yawVelocity = 0f, prevYaw = s.yaw)
 
     fun drag(s: CardState, dx: Float, dy: Float): CardState = s.copy(
         yaw = s.yaw + dx * DRAG_SENSITIVITY,
@@ -41,9 +52,30 @@ object CardReducer {
 
     fun reset(): CardState = CardState()
 
-    /** Advance time by [dt] seconds: recenter pitch when released, relax tap pulse. */
-    fun step(s: CardState, dt: Float): CardState = s.copy(
-        pitch = if (s.isPressed) s.pitch else approach(s.pitch, 0f, RECENTER_SPEED, dt),
-        scale = approach(s.scale, 1f, SCALE_SPEED, dt),
-    )
+    /**
+     * Advance time by [dt] seconds. Two regimes:
+     *  - **pressed:** the finger owns yaw, so we only *measure* how fast it's turning (for the
+     *    eventual flick) and recompute [CardState.prevYaw]; pitch is held, the pulse still relaxes.
+     *  - **released:** yaw coasts on [CardState.yawVelocity] with exponential friction, pitch
+     *    recenters to 0, the pulse relaxes.
+     */
+    fun step(s: CardState, dt: Float): CardState {
+        if (dt <= 0f) return s
+        val scale = approach(s.scale, 1f, SCALE_SPEED, dt)
+        return if (s.isPressed) {
+            val measured = ((s.yaw - s.prevYaw) / dt).coerceIn(-MAX_SPIN, MAX_SPIN)
+            s.copy(scale = scale, yawVelocity = measured, prevYaw = s.yaw)
+        } else {
+            val decayed = approach(s.yawVelocity, 0f, SPIN_FRICTION, dt)
+            val velocity = if (abs(decayed) < MIN_SPIN) 0f else decayed
+            val yaw = s.yaw + velocity * dt
+            s.copy(
+                yaw = yaw,
+                pitch = approach(s.pitch, 0f, RECENTER_SPEED, dt),
+                scale = scale,
+                yawVelocity = velocity,
+                prevYaw = yaw,
+            )
+        }
+    }
 }
