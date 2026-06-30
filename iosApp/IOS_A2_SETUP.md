@@ -15,11 +15,25 @@ Files already generated in the repo:
 | `iosApp/Podfile` | pulls `pod 'Filament'` (engine + filamat) |
 | `ContentView.swift` | now calls `MainViewController(bridge: CardSceneBridgeImpl())` |
 
+## Prerequisites (run `kdoctor` first)
+`kdoctor` (`brew install kdoctor`) verifies the KMP env. On this machine it flagged two
+CocoaPods blockers typical of Apple Silicon — fix them before `pod install`:
+- **UTF-8 locale** — add to `~/.zprofile`, then open a new terminal:
+  ```bash
+  export LANG=en_US.UTF-8
+  export LC_ALL=en_US.UTF-8
+  ```
+- **CocoaPods vs system ruby** — system ruby on M-series isn't compatible. Cleanest fix:
+  ```bash
+  brew install cocoapods   # ships its own ruby; avoids `sudo gem install` on system ruby
+  pod --version            # confirm it runs
+  ```
+(The Android Studio "KMM plugin not installed" warning is irrelevant here — we build in Xcode.)
+
 ## Steps
 
 1. **Install the pod**
    ```bash
-   sudo gem install cocoapods      # once, if needed
    cd iosApp
    pod install
    ```
