@@ -28,12 +28,14 @@ scene", not "a pretty card".
   (`./gradlew :shared:testAndroidHostTest`). Feel approved as-is — the tunables
   (`SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer`) are left at current values.
   **Phase A complete.**
-- **iOS — placeholder now compiles (first-ever K/N build done).** `CardScene.ios.kt` (2D
-  `UIView` placeholder, A1-equivalent) compiles on both `iosSimulatorArm64` + `iosArm64`. The
-  first build surfaced a real break: Compose MP 1.11.1 dropped `UIKitInteropProperties(isInteractive=…)`
-  → use `interactionMode = null` for a passive view (fixed). Still **2D, not Filament** — the
-  iOS A2/A3 Metal port is the open work. **Xcode availability is machine-dependent** (like the
-  network — see env facts); confirm at session start before planning iOS work.
+- **iOS A2 — IN PROGRESS.** Kotlin seam DONE & verified (`CardSceneBridge` injected via
+  `MainViewController(bridge)`; `CardScene.ios` hosts the native `UIView`, pushes the transform
+  per frame, falls back to the 2D placeholder when no bridge). Compiles on
+  `iosSimulatorArm64`+`iosArm64`. Native Filament shim (`FilamentCardView.h/.mm` ObjC++ + Metal,
+  `CardSceneBridgeImpl.swift`, `Podfile`) is **generated but unbuilt** — owner wires it in Xcode
+  per `iosApp/IOS_A2_SETUP.md` (pod install, add files, bridging header, C++17/libc++) and reports
+  build errors to fix iteratively. Engine lives in Swift; `commonMain` untouched. **Xcode
+  availability is machine-dependent** (see env facts) — confirm at session start.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.

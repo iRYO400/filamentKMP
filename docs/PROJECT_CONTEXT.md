@@ -111,18 +111,29 @@ so touches pass through to the Compose gesture detector).
   **No CocoaPods yet** — wizard used a direct static framework, not the `kotlin.cocoapods` plugin.
   `Info.plist` already sets `CADisableMinimumFrameDurationOnPhone` (needed for high-FPS Compose).
 
-## 6. iOS plan (Xcode availability is machine-dependent — confirm at session start)
-Filament on iOS is always native C++; Swift can't call it directly → an **Objective-C++ (`.mm`)
-shim** wrapping Filament in a `UIView` (CAMetalLayer + `CADisplayLink`), exposing a clean ObjC
-interface. Bridge into Compose:
-1. CocoaPods in the **Xcode `iosApp` project** for `pod 'Filament'` (NOT the gradle cocoapods
-   plugin — keep K/N unaware of Filament).
-2. Kotlin can't see classes from the app target → Swift implements a **view factory** and injects
-   it into `MainViewController()` (DI); the iOS `actual CardScene` puts the injected view into
-   `UIKitView`.
-3. Push state into the shim via a small bridge interface subscribed to `controller.state`.
+## 6. iOS A2 — real Filament (🛠 IN PROGRESS: Kotlin seam done+verified, native half awaiting Xcode)
+Filament on iOS is native C++/Metal; K/N can't cinterop C++ → the engine lives on the **Swift
+side** and is injected into Compose. Confirmed during build-out: `pod 'Filament'` is real (since
+1.8.0) and **includes filamat**, so the material is built at runtime exactly like Android (no
+`matc` needed); the official path uses **`MTKView` + `MTKViewDelegate`** as the vsync loop (not a
+hand-rolled `CADisplayLink`).
 
-Until then, the iOS `actual` is a pure-Kotlin placeholder `UIView` and is **not compiled**.
+**Kotlin seam — DONE, compiles on `iosSimulatorArm64`+`iosArm64` (commit `42f0052`):**
+- `CardSceneBridge` interface (`makeView()/update(yaw,pitch,scale)/dispose()`) + `IosCardScene`
+  holder; `MainViewController(bridge: CardSceneBridge? = null)` injects it; `CardScene.ios` uses
+  the real path when a bridge is present (hosts the native `UIView` in `UIKitView`, pushes the
+  transform every frame via `withFrameNanos` — no recompose) and otherwise renders the 2D
+  placeholder. `commonMain` untouched.
+
+**Native half — generated, NOT yet built (owner does this in Xcode; see `iosApp/IOS_A2_SETUP.md`):**
+- `FilamentCardView.h/.mm` (ObjC++): faithful port of Android `FilamentRenderer` — Metal Engine,
+  1.0×1.4 quad, runtime UNLIT+doubleSided material (`targetApi METAL`), camera +Z=3.2, transform
+  `Ry·Rx·scale` via `TransformManager`; `MTKViewDelegate.drawInMTKView` is the frame loop.
+- `CardSceneBridgeImpl.swift` implements the Kotlin protocol and owns the view; `ContentView.swift`
+  now passes `MainViewController(bridge: CardSceneBridgeImpl())`; `Podfile` + bridging header added.
+- Owner runs `pod install`, adds files to the target, sets the bridging header + C++17/libc++,
+  builds on arm64. The `.mm` couldn't be shell-compiled — expect minor first-build fixups
+  (filamat `build()` arg, `Package` getters, `createSwapChain` cast); the seam won't change.
 
 ## 7. A2 as-built — real Filament on Android (✅ DONE, commit `c76cc0f`)
 Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):

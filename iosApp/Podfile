@@ -1,0 +1,17 @@
+# CocoaPods for the iosApp target — pulls in Google Filament (engine + filamat) for iOS.
+# Filament ships static libs, so request static linkage explicitly.
+#
+# Setup (owner, on a machine with Xcode + network):
+#   1. sudo gem install cocoapods            # if not already installed
+#   2. cd iosApp && pod install
+#   3. open iosApp.xcworkspace               # NOT the .xcodeproj from now on
+#
+# Pin the pod to the same Filament version as Android (1.72.0) so behaviour matches. If that
+# exact version isn't published as a pod, use the closest available and note it in PROJECT_CONTEXT.
+
+platform :ios, '13.0'
+
+target 'iosApp' do
+  use_frameworks! :linkage => :static
+  pod 'Filament', '1.72.0'
+end
