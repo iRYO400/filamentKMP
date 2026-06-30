@@ -28,16 +28,21 @@ scene", not "a pretty card".
   (`./gradlew :shared:testAndroidHostTest`). Feel approved as-is — the tunables
   (`SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer`) are left at current values.
   **Phase A complete.**
-- **iOS — deferred.** Code (`CardScene.ios.kt`) is written but **not built** (owner has no
-  Xcode). Don't spend effort on iOS until Xcode is available.
+- **iOS — written, not yet built.** `CardScene.ios.kt` exists (placeholder `UIView`) but has
+  never been compiled. **Xcode availability is machine-dependent** (like the network — see env
+  facts): some machines have it, others don't. On a Xcode-equipped machine the iOS port (A2/A3
+  parity via Metal) is unblocked; confirm at session start before planning iOS work.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.
-- **Build environment varies by machine.** Some setups have full network + warm Gradle
-  caches and build fine from the shell; others are network/cache-restricted, where
-  `./gradlew` fails to resolve and "it builds" can't be trusted. **At the start of a
-  session, before relying on or claiming a build result, ask the owner which environment
-  this is** (open ↔ restricted) — it's a deliberate convention to avoid guessing.
+- **Capabilities vary by machine — confirm at session start (deliberate convention).** The
+  owner works across more than one Mac and they differ in two ways:
+  - **Network / Gradle cache:** some have full network + warm caches and build fine from the
+    shell; others are restricted, where `./gradlew` fails to resolve and "it builds" can't be
+    trusted.
+  - **Xcode:** present on some machines, absent on others — gates all iOS build/run work.
+  Before relying on a build result or planning iOS work, **ask which machine this is** rather
+  than guessing. (This session's machine: network OK + Xcode present, per the owner.)
 - When the shell *can* build, verify with these task names (new
   `com.android.kotlin.multiplatform.library` plugin — NOT the old `compileDebugKotlinAndroid`):
   - `./gradlew :shared:compileAndroidMain` — common+Android Kotlin

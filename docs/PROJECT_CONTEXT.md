@@ -111,7 +111,7 @@ so touches pass through to the Compose gesture detector).
   **No CocoaPods yet** — wizard used a direct static framework, not the `kotlin.cocoapods` plugin.
   `Info.plist` already sets `CADisableMinimumFrameDurationOnPhone` (needed for high-FPS Compose).
 
-## 6. iOS plan (deferred — no Xcode on owner's machine yet)
+## 6. iOS plan (Xcode availability is machine-dependent — confirm at session start)
 Filament on iOS is always native C++; Swift can't call it directly → an **Objective-C++ (`.mm`)
 shim** wrapping Filament in a `UIView` (CAMetalLayer + `CADisplayLink`), exposing a clean ObjC
 interface. Bridge into Compose:
