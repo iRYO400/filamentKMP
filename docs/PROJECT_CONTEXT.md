@@ -173,3 +173,12 @@ Filament 1.72.0 (live on Android, GL backend) · package `com.sadvakassov.filame
 - The A1 2D-Canvas fake is **gone as of A2** — the on-screen card is now real Filament output.
   (Historical: A1 squeezed width via `|cos|` to fake yaw; that code no longer renders.)
 - Old `androidx.compose.ui.interop.UIKitView` is deprecated → use `androidx.compose.ui.viewinterop`.
+- Compose MP 1.11.1 changed `UIKitInteropProperties`: there is no `isInteractive` in the default
+  constructor anymore. For a passive native view (touches fall through to Compose gestures) pass
+  `interactionMode = null`. (Caught on the first-ever iOS compile; the placeholder predated 1.11.1.)
+- iOS Kotlin (`iosMain` placeholder) compiles on `iosSimulatorArm64` + `iosArm64` once Xcode +
+  K/N dist are present. First native build downloads the K/N toolchain (minutes); later builds are
+  seconds. Verify with `:shared:compileKotlinIosSimulatorArm64` / `:shared:compileKotlinIosArm64`.
+- Shell gotcha: `./gradlew … | tee log | tail` reports the **pipe's** exit code (`tail` = 0), so a
+  failed Gradle build looks like it passed. Capture `$?` of gradle directly (redirect, then tail),
+  not through a pipe, when you need a trustworthy exit code.

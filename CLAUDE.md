@@ -28,10 +28,12 @@ scene", not "a pretty card".
   (`./gradlew :shared:testAndroidHostTest`). Feel approved as-is — the tunables
   (`SPIN_FRICTION` / `MAX_SPIN` / `RECENTER_SPEED` in `CardReducer`) are left at current values.
   **Phase A complete.**
-- **iOS — written, not yet built.** `CardScene.ios.kt` exists (placeholder `UIView`) but has
-  never been compiled. **Xcode availability is machine-dependent** (like the network — see env
-  facts): some machines have it, others don't. On a Xcode-equipped machine the iOS port (A2/A3
-  parity via Metal) is unblocked; confirm at session start before planning iOS work.
+- **iOS — placeholder now compiles (first-ever K/N build done).** `CardScene.ios.kt` (2D
+  `UIView` placeholder, A1-equivalent) compiles on both `iosSimulatorArm64` + `iosArm64`. The
+  first build surfaced a real break: Compose MP 1.11.1 dropped `UIKitInteropProperties(isInteractive=…)`
+  → use `interactionMode = null` for a passive view (fixed). Still **2D, not Filament** — the
+  iOS A2/A3 Metal port is the open work. **Xcode availability is machine-dependent** (like the
+  network — see env facts); confirm at session start before planning iOS work.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.

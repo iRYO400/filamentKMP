@@ -14,8 +14,9 @@ import platform.UIKit.UIView
 
 /**
  * A1 iOS placeholder. Embeds a native [UIView] via `UIKitView` and feeds it the latest
- * [CardState] through the `update` lambda. `isInteractive = false` lets touches pass through
- * to the Compose gesture detector in `CardStage` (the native view is passive display here).
+ * [CardState] through the `update` lambda. `interactionMode = null` makes the view passive so
+ * touches pass through to the Compose gesture detector in `CardStage` (Compose MP 1.11.1
+ * replaced the old `isInteractive = false` flag with this).
  *
  * Only stable, low-risk UIKit/CoreGraphics calls are used. In A2 this `factory` is replaced
  * by a Metal-backed Filament view supplied from Swift (injected via DI), driven by the same
@@ -39,7 +40,7 @@ actual fun CardScene(controller: CardController, modifier: Modifier) {
             val rotated = CGAffineTransformMakeRotation(state.yaw.toDouble())
             view.transform = CGAffineTransformScale(rotated, state.scale.toDouble(), state.scale.toDouble())
         },
-        properties = UIKitInteropProperties(isInteractive = false),
+        properties = UIKitInteropProperties(interactionMode = null),
     )
 }
 
