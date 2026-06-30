@@ -39,6 +39,9 @@ scene", not "a pretty card".
 - **iOS lifecycle — wired.** `FilamentCardView` observes `UIApplication` background/foreground
   notifications and toggles `MTKView.paused` (iOS counterpart of Android's ON_PAUSE/ON_RESUME;
   also avoids Metal rendering to a backgrounded layer). Observers removed in `dispose`.
+- **Next (backlog, not started):** Phase B = visual (glTF/PBR/holographic), or **Phase C =
+  architecture hardening** — adopt JetBrains' May-2026 KMP structure (split `shared` →
+  `sharedLogic` + `sharedUI`). See PROJECT_CONTEXT §3 Phase C.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.

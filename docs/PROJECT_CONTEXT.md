@@ -68,6 +68,23 @@ Demo (non-commercial; for learning + building a reusable pipeline):
 - **B2 — Visual polish.** Holographic foil `.mat`, IBL environment, bloom/AA, tap particles +
   haptics. "Looks like a production demo."
 
+**Phase C — Architecture hardening / modern KMP conventions** (BACKLOG — separate phase, not now):
+Goal: bring the project in line with current KMP best practices now that the foundation works.
+Headline item (anchored, owner-requested):
+- **Adopt JetBrains' May-2026 "new default KMP structure"** — split the single `shared` module
+  (which today mixes pure logic + Compose UI) into **`sharedLogic`** (no Compose deps — the
+  reusable core: `CardState`/`CardReducer`/`CardController`/`math`) and **`sharedUI`** (Compose:
+  `CardStage`/`CardHud`/`App`/`CardScene` + renderers). We're a textbook candidate. Refs:
+  https://blog.jetbrains.com/kotlin/2026/05/new-kmp-default-structure/ and
+  https://kotlinlang.org/docs/multiplatform/multiplatform-project-recommended-structure.html
+  Re-read both before starting — details may have evolved.
+Candidate companion items (decide scope when the phase starts):
+- DI for `CardController` instead of `remember { CardController() }` in `App()`.
+- Expand `commonTest` beyond the reducer; consider a tiny render-contract test.
+- Revisit source-set/package naming and the iOS bridge packaging against the new guidance.
+Constraint: the interop seam must survive the module split — `sharedLogic` must not gain a
+Compose or platform dependency, or the whole point is lost.
+
 ## 4. Architecture
 
 ```
