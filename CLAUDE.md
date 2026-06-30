@@ -12,11 +12,17 @@ phase, not abandoned**. Success = "I understand every seam and can reuse it by s
 scene", not "a pretty card".
 
 ## Current status (read this first)
-- **Phase A / A1 — DONE & runs on Android.** Skeleton + architecture in place; gestures,
-  shared state, frame loop, two-way HUD binding all working. The card you see is a
-  **2D `Canvas` placeholder, NOT Filament yet** (real engine = A2).
-- **Next: A2 — real Filament on Android.** Replace the placeholder in `CardScene.android.kt`
-  with a `FilamentRenderer` (see A2 plan in PROJECT_CONTEXT). Common code stays untouched.
+- **Phase A / A1 — DONE.** Skeleton + architecture; gestures, shared state, frame loop,
+  two-way HUD binding all working.
+- **Phase A / A2 — DONE & runs on Android (owner confirmed real 3D on-screen).** The 2D
+  `Canvas` placeholder is gone; `CardScene.android.kt` now hosts a real `FilamentRenderer`
+  (Filament Engine on a `SurfaceView`, `Choreographer` loop reading the same controller).
+  `commonMain` untouched — the seam held. Scope kept tight on purpose: a flat UNLIT
+  double-sided quad, **no lighting/PBR/thickness yet** (those are Phase B). Deps added:
+  `filament-android` + `filamat-android` (runtime material via `MaterialBuilder`);
+  `filament-utils-android` was NOT needed (UiHelper/DisplayHelper live in `filament-android`).
+- **Next: A3 — tune the *feel*.** The engine now consumes the shared state; A3 = smooth
+  tilt/spring-recenter with no jank (physics already largely in `CardReducer`).
 - **iOS — deferred.** Code (`CardScene.ios.kt`) is written but **not built** (owner has no
   Xcode). Don't spend effort on iOS until Xcode is available.
 
@@ -50,7 +56,7 @@ commonMain  → state + logic + Compose UI (the reusable core)
   CardStage        gestures (drag/tap) + withFrameNanos tick + hosts CardScene
   CardHud          Compose overlay, two-way bound to the same state
   expect CardScene(controller, modifier)   ← the platform seam
-androidMain → actual CardScene = AndroidView( native View )   [A1: placeholder; A2: Filament]
+androidMain → actual CardScene = AndroidView( SurfaceView )    [A2: real Filament — DONE]
 iosMain     → actual CardScene = UIKitView( native UIView )   [placeholder; not built yet]
 ```
 Data flow: **gesture → CardController (StateFlow) → renderer reads snapshot each frame**.
@@ -65,7 +71,8 @@ Gestures are captured in shared code (not the native view) so one state drives 3
 | `shared/src/commonMain/.../scene/CardStage.kt` | gestures + frame loop |
 | `shared/src/commonMain/.../scene/CardScene.kt` | `expect` platform surface |
 | `shared/src/commonMain/.../ui/CardHud.kt` | Compose overlay (UI↔3D) |
-| `shared/src/androidMain/.../scene/CardScene.android.kt` | Android actual (placeholder → A2 Filament) |
+| `shared/src/androidMain/.../scene/CardScene.android.kt` | Android actual — hosts Filament `SurfaceView` + engine lifecycle |
+| `shared/src/androidMain/.../scene/FilamentRenderer.kt` | A2 real Filament renderer (Engine, quad, runtime material, frame loop) |
 | `shared/src/iosMain/.../scene/CardScene.ios.kt` | iOS actual (placeholder, unbuilt) |
 
 ## Conventions
@@ -77,5 +84,6 @@ Gestures are captured in shared code (not the native view) so one state drives 3
 
 ## Stack / versions
 Kotlin 2.4.0 · Compose MP 1.11.1 · AGP 9.0.1 (`com.android.kotlin.multiplatform.library`) ·
-minSdk 24 · package `com.sadvakassov.filament.kmp` · Filament **1.72.0** (planned for A2) ·
-iOS via CocoaPods + Metal (Phase A2/later). New interop API: `androidx.compose.ui.viewinterop.UIKitView`.
+minSdk 24 · package `com.sadvakassov.filament.kmp` · Filament **1.72.0** (live on Android: GL
+backend, runtime material via `filamat`) · iOS via CocoaPods + Metal (later).
+New interop API: `androidx.compose.ui.viewinterop.UIKitView`.

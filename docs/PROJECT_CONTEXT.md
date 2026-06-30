@@ -1,8 +1,8 @@
 # filamentKMP — deep project context
 
 > Companion to root `CLAUDE.md`. This is the full design record: goal, decisions, milestones,
-> architecture, the Filament-sources handoff, and the next-step (A2) plan. A fresh session
-> should be able to resume from here without re-deriving anything.
+> architecture, the Filament-sources handoff, and the A2 as-built record (next up: A3). A fresh
+> session should be able to resume from here without re-deriving anything.
 
 ---
 
@@ -39,13 +39,19 @@ Demo (non-commercial; for learning + building a reusable pipeline):
 **Phase A — Foundation** (prove the seam is alive, smooth, cleanly separated):
 - **A1 — Runnable skeleton + architecture. ✅ DONE (runs on Android).**
   KMP wiring, `CardController`/`CardState`/`CardReducer`, `expect CardScene` + `actual` on both
-  platforms. App launches; gestures + frame loop + two-way HUD binding work. *Visual is a 2D
-  placeholder, not Filament.*
-- **A2 — Real basic geometry renders. ⏳ NEXT (Android).** Filament renderer on Android
-  (procedural quad + light + camera), reading the same controller. See §7.
-- **A3 — Geometry reacts to input through the engine.** Smooth tilt/rotation + spring recenter
-  driven by the shared state, no jank. (Largely already modeled in `CardReducer`; A3 = make the
-  *engine* consume it and tune feel.)
+  platforms. App launches; gestures + frame loop + two-way HUD binding work. *Visual was a 2D
+  placeholder at A1 — since superseded by real Filament in A2.*
+- **A2 — Real basic geometry renders. ✅ DONE (Android; owner confirmed 3D on-screen).**
+  `FilamentRenderer.kt` owns a Filament `Engine` on a `SurfaceView` (UiHelper/DisplayHelper,
+  GL backend), draws a procedural quad with a runtime-built material, and drives it from
+  `controller.state` on a `Choreographer` loop via `TransformManager`. `commonMain` untouched.
+  Scope diffs from the original plan (deliberate): material is **UNLIT + doubleSided, no
+  light** (clear two-sided card without a tangent frame; lit/PBR → Phase B); only
+  `filament-android` + `filamat-android` deps were needed (`filament-utils-android` not used).
+  See §7 for the as-built record.
+- **A3 — Geometry reacts to input through the engine. ⏳ NEXT.** The engine already consumes
+  the shared state (A2). A3 = tune *feel*: smooth tilt/rotation + spring recenter, no jank.
+  Physics is largely modeled in `CardReducer`; A3 is mostly tuning + verifying on-device.
 - *(then port A2/A3 to iOS once Xcode is available — see §6.)*
 
 **Phase B — Content & visual** (only after a working foundation):
@@ -111,19 +117,29 @@ interface. Bridge into Compose:
 
 Until then, the iOS `actual` is a pure-Kotlin placeholder `UIView` and is **not compiled**.
 
-## 7. A2 plan — real Filament on Android (next step)
+## 7. A2 as-built — real Filament on Android (✅ DONE, commit `c76cc0f`)
 Self-contained on the owner's machine (Maven only; **no `matc`, no Filament source build**):
-- Deps: `com.google.android.filament:filament-android:1.72.0`,
-  `com.google.android.filament:filamat-android:1.72.0` (runtime material builder),
-  `com.google.android.filament:filament-utils-android:1.72.0` (helpers/UiHelper).
-  (`gltfio-android` only in Phase B.)
-- Only `CardScene.android.kt` changes; commonMain untouched.
-- `FilamentRenderer` (Kotlin): `Engine` → `SurfaceView` + `UiHelper` → `SwapChain`,
-  `Renderer`/`View`/`Scene`/`Camera`; procedural quad (VertexBuffer/IndexBuffer); a simple lit
-  material built at runtime via `filamat` `MaterialBuilder`; one light.
-- `Choreographer` frame loop reads `controller.state.value` and applies yaw/pitch/scale via
-  `TransformManager` (now real 3D). `Engine.destroy()` on view detach.
-- Acceptance: a real 3D card renders and reacts to the same drag/tap, no jank.
+- Deps actually added: `com.google.android.filament:filament-android:1.72.0` +
+  `:filamat-android:1.72.0` (runtime material builder). **`filament-utils-android` was NOT
+  needed** — `UiHelper`/`DisplayHelper` ship inside `filament-android` (pkg
+  `com.google.android.filament.android`). (`gltfio-android` still Phase B only.)
+- Only `CardScene.android.kt` changed + new `FilamentRenderer.kt`; **commonMain untouched**.
+- `FilamentRenderer`: `Engine.create()` (default GL backend) → `SurfaceView` + `UiHelper` →
+  `SwapChain` (from `SurfaceCallback.onNativeWindowChanged`); `Renderer`/`View`/`Scene`/
+  `Camera` (camera at +Z=3.2 looking at origin, 45° vertical FOV). Geometry: a flat quad
+  (1.0×1.4, XY plane) via `VertexBuffer`/`IndexBuffer`, POSITION-only.
+- Material: built at runtime via `filamat` `MaterialBuilder` — **UNLIT + doubleSided**, solid
+  baseColor, `targetApi(OPENGL)` to match the GL engine. (No light; lit/PBR deferred to B2.)
+  `MaterialBuilder.init()/shutdown()` bracket the build.
+- `Choreographer` frame loop reads `controller.state.value` and maps yaw/pitch/scale to a
+  column-major 4×4 (`Ry*Rx*scale`) applied through `TransformManager`. No Compose recompose
+  per frame.
+- Lifecycle: `resume()`/`pause()` toggle the frame callback (running-guard prevents
+  double-post); `destroy()` tears down all Filament objects + entities + `Engine.destroy()`,
+  wired to ON_RESUME/ON_PAUSE/onDispose in the Compose actual.
+- Acceptance met: owner built it and a real 3D card renders + reacts to the same drag/tap.
+- Known cosmetic gap: clear-color comment says "soft pink" but the value is dark navy
+  `(0.055,0.055,0.078)` — harmless, revisit when polishing the visual.
 
 ## 8. Filament-sources handoff (for a second Claude opened in `google/filament`)
 That repo compiles slowly — **extract artifacts/knowledge, don't rebuild the engine.** Useful
@@ -139,11 +155,14 @@ material at runtime.
 
 ## 9. Versions
 Kotlin 2.4.0 · Compose MP 1.11.1 · AGP 9.0.1 · coroutines 1.9.0 · minSdk 24 / compileSdk 36 ·
-Filament 1.72.0 (planned) · package `com.sadvakassov.filament.kmp`.
+Filament 1.72.0 (live on Android, GL backend) · package `com.sadvakassov.filament.kmp`.
 
 ## 10. Gotchas / lessons
-- In-sandbox `./gradlew` builds fail (no network → no aapt2, no Kotlin/Native dist). Verification
-  must come from the owner's IDE run. App ran on Android ⇒ common+android Kotlin compiles.
-- A1's on-screen card is a **2D Canvas fake** (yaw squeezes width via `|cos|`, pitch tilts) — it
-  exists only to prove the seam; do not mistake it for Filament output.
+- Build environment varies by machine: some setups have full network + warm Gradle caches and
+  build from the shell, others are restricted (no aapt2 / no Kotlin/Native dist) and `./gradlew`
+  fails. Confirm which at session start before trusting a build result (see CLAUDE.md). Task
+  names use the new `com.android.kotlin.multiplatform.library` plugin: `:shared:compileAndroidMain`,
+  `:androidApp:assembleDebug`, `:shared:compileCommonMainKotlinMetadata` (NOT `compileDebugKotlinAndroid`).
+- The A1 2D-Canvas fake is **gone as of A2** — the on-screen card is now real Filament output.
+  (Historical: A1 squeezed width via `|cos|` to fake yaw; that code no longer renders.)
 - Old `androidx.compose.ui.interop.UIKitView` is deprecated → use `androidx.compose.ui.viewinterop`.
