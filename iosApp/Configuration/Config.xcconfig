@@ -8,3 +8,7 @@ MARKETING_VERSION=1.0
 
 // iOS A2: expose the ObjC++ Filament shim to Swift without touching Build Settings in the GUI.
 SWIFT_OBJC_BRIDGING_HEADER=$(SRCROOT)/iosApp/iosApp-Bridging-Header.h
+
+// iOS A2: the shim uses MTKView (MetalKit). The Filament pod links Metal but not MetalKit, so
+// add both here. The Pods xcconfig's OTHER_LDFLAGS begins with $(inherited), so these flow up.
+OTHER_LDFLAGS=$(inherited) -framework MetalKit -framework Metal
