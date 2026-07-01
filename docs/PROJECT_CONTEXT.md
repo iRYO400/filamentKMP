@@ -6,6 +6,16 @@
 
 ---
 
+## 0. Product vision (the end goal)
+The milestones below climb toward one product: a **free case-opening simulator** whose payoff is a
+real 3D reveal on our Filament pipeline. It's split into **delivery tiers** — the near-term target
+is **preMVP**: splash → one big hero button → a **3D box-open reveal** where a **procedural lootbox**
+opens and the **existing holo card** rises out to inspect. Pure showcase (no tabs/lists/RNG/economy/
+persistence), built on the pipeline we already have — it exercises Filament *animation*, not app
+architecture. **MVP** adds real glTF gun models + textures (Phase B1); **MVP+** is the full app
+(Cases + Inventory, 3 tabs, economy). Full tiering + backlog↔product mapping:
+[`PRODUCT.md`](PRODUCT.md). Read it to know *why* each phase exists.
+
 ## 1. Goal & priorities
 
 Demo (non-commercial; for learning + building a reusable pipeline):

@@ -13,6 +13,13 @@ where Compose UI drives the 3D through one shared state. A polished visual is a 
 phase, not abandoned**. Success = "I understand every seam and can reuse it by swapping the
 scene", not "a pretty card".
 
+**End-goal product (what the backlog climbs toward):** a free **case-opening simulator** —
+payoff = a real 3D reveal on this pipeline. Tiered delivery; **next = preMVP**: splash → one
+big hero button → a **3D box-open** where a *procedural* lootbox opens and the *existing* holo
+card rises out to inspect. Pure showcase (no tabs/lists/RNG/economy) — exercises Filament
+animation, not app architecture. MVP = real glTF gun models (Phase B1); MVP+ = full app (Cases
++ Inventory, 3 tabs). Concept + backlog↔product map: [`docs/PRODUCT.md`](docs/PRODUCT.md).
+
 ## Current status (read this first)
 - **Phase A / A1 — DONE.** Skeleton + architecture; gestures, shared state, frame loop,
   two-way HUD binding all working.
