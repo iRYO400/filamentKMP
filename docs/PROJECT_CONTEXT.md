@@ -85,6 +85,73 @@ Candidate companion items (decide scope when the phase starts):
 Constraint: the interop seam must survive the module split — `sharedLogic` must not gain a
 Compose or platform dependency, or the whole point is lost.
 
+**Phase D — Engine lifecycle: lazy-load & warm-up** (BACKLOG — separate phase, not now):
+Goal: stop loading Filament 100% eagerly. Today the engine is built synchronously the instant
+`CardScene` composes — Android `FilamentRenderer.init {}` via the `AndroidView` factory
+(`Filament.init()` native lib load → `Engine.create()` → scene/material build → `resume()`);
+iOS `FilamentCardView initWithFrame` (`setupMetalView` + `setupFilament`, `paused = NO`) via the
+`UIKitView` factory / bridge. Real apps defer heavy 3D until it's needed (e.g. behind a tab) or
+pre-warm it off the critical path. The interesting work is a **lifecycle contract on the seam**,
+kept platform-agnostic. The only lifecycle that exists today is pause/resume of the *frame loop*
+(Choreographer callback / `MTKView.paused`); the engine itself always stays alive, and teardown
+only fires on composition dispose.
+- **D1 — Lazy / deferred start.** Don't create the engine until the surface is actually shown.
+  A host-controlled gate so `CardScene` builds the native engine on demand rather than in the
+  factory, with a lightweight placeholder (or the existing 2D placeholder) until then. Android:
+  defer `Engine.create()` + scene build out of `init`; iOS: defer `setupMetalView`/`setupFilament`.
+- **D2 — Background warm-up (pre-warm).** Start the expensive parts ahead of time so the surface
+  appears instantly: native lib load (`Filament.init()`), `Engine.create()`, runtime material
+  compilation. **Constraint:** Filament requires its API calls on the main/render thread, so
+  "background" means pre-scheduling CPU-bound prep off the first-frame critical path — not calling
+  the engine from an arbitrary thread. Scope the real thread boundaries when the phase starts.
+- **D3 — Teardown / reclaim on hide.** Policy for when the card leaves view: fully `destroy()` to
+  reclaim GPU/native memory vs. keep-warm + pause. Today `destroy()` only fires on composition
+  `onDispose`; pause only stops the frame loop. Decide keep-warm vs. reclaim (likely configurable)
+  and where the trigger lives (composition dispose vs. an explicit host signal).
+- **D4 — Readiness state in the shared core.** An engine-lifecycle state
+  (`Idle → WarmingUp → Ready → Paused`, + an error case) in the shared layer so the HUD can show a
+  loading indicator and gestures can be gated until ready. **Must stay platform-agnostic** — no
+  Compose/engine types in the state; renderers report readiness back through the seam, they don't
+  leak into `CardState`.
+Seam impact (decide when the phase starts): the `expect CardScene` signature and/or
+`CardController` gain a start/readiness concept. This is the same seam Phase C splits into
+`sharedLogic`/`sharedUI`, so the D4 readiness contract must live in `sharedLogic` with no platform
+dependency — **sequence D after (or alongside) Phase C**, and don't let the lifecycle contract
+re-couple the core to a platform. Prerequisite for demoing lazy-load on-device: a minimal
+multi-screen/tab host exists nowhere today — building one is out of scope for this entry and
+decided when D starts.
+
+**Phase E — Device capability detection & tiering (splash gate)** (BACKLOG — separate phase, not now):
+Goal: on **first launch**, a splash screen probes what Filament can actually do on *this* device,
+classifies it into a tier, **persists** the verdict, and gates the experience accordingly (à la
+Telegram's low/medium/high device classes that drive which animations/UI to show). First launch is
+intentionally slower (the probe); later launches read the cached tier and skip it. This pairs
+naturally with **Phase D** — the same slow-first-launch moment does the warm-up *and* the probe.
+Deep-dive on what's probeable: `docs/FILAMENT_CAPABILITIES.md` §2 & §5.
+- **E1 — Tier model (stage-1 = 3 tiers).** Owner-proposed simplification: **`zero / low / high`**
+  (expandable later to Telegram-style `low/medium/high`). Mapping (draft, ground in feature levels):
+  - **zero = unsupported** — backend won't init or `getSupportedFeatureLevel()` < FL1 (GLES-2-only
+    / FL0). No point continuing → show an "unsupported device" screen, don't enter the experience.
+  - **low = weak device** — FL1 baseline. Run a reduced path: simpler material, no bloom/SSAO/heavy
+    shadows, low/no MSAA, ≤16 samplers, smaller textures.
+  - **high = full capabilities** — FL2/FL3. All post-FX, richer material, higher MSAA.
+- **E2 — Probe mechanism.** Create the (real or throwaway) `Engine` once and read
+  `getSupportedFeatureLevel()` as the primary signal, plus `isStereoSupported`,
+  `getMaxAutomaticInstances`, backend, and the `FEATURE_LEVEL_CAPS`/`MAX_*` limits. Optional
+  stage-2: a tiny timed micro-render to catch devices that *report* a level but run it slowly (the
+  Telegram "perf class" idea) — decide if worth it when the phase starts.
+- **E3 — Persistence.** Cache the tier + probed values so only the first launch pays the cost
+  (invalidate on app/Filament version bump). Needs a small KMP key-value store (`expect/actual` or
+  a multiplatform settings lib) — call the dependency choice out as a sub-task.
+- **E4 — Where it lives (seam discipline).** The **tier enum + probe-result model + classification
+  rules** are pure data → `sharedLogic` (no Compose/engine types). Only the raw `Engine` query is
+  platform-side, reported back through a small seam (mirrors D4's readiness contract). The splash
+  UI + "unsupported" screen are Compose in `sharedUI`. The experience/HUD reads the tier to pick
+  its render path.
+Constraint: same as D/C — the classifier must not pull a platform or Compose dependency into the
+shared core. Sequence **after Phase D** (shares the first-launch/warm-up flow) and mind Phase C's
+`sharedLogic`/`sharedUI` split.
+
 ## 4. Architecture
 
 ```

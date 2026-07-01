@@ -2,6 +2,8 @@
 
 > Loaded every session. Keep it short and high-signal. Deep detail lives in
 > [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md) — read it before any non-trivial change.
+> Filament's cross-platform (Android+iOS) feature set + feature-level reference:
+> [`docs/FILAMENT_CAPABILITIES.md`](docs/FILAMENT_CAPABILITIES.md).
 
 ## What this is
 KMP + Compose Multiplatform demo that renders an interactive 3D "Pokémon-style" card with
@@ -39,9 +41,12 @@ scene", not "a pretty card".
 - **iOS lifecycle — wired.** `FilamentCardView` observes `UIApplication` background/foreground
   notifications and toggles `MTKView.paused` (iOS counterpart of Android's ON_PAUSE/ON_RESUME;
   also avoids Metal rendering to a backgrounded layer). Observers removed in `dispose`.
-- **Next (backlog, not started):** Phase B = visual (glTF/PBR/holographic), or **Phase C =
+- **Next (backlog, not started):** Phase B = visual (glTF/PBR/holographic); **Phase C =
   architecture hardening** — adopt JetBrains' May-2026 KMP structure (split `shared` →
-  `sharedLogic` + `sharedUI`). See PROJECT_CONTEXT §3 Phase C.
+  `sharedLogic` + `sharedUI`); **Phase D = engine lifecycle** — lazy-load / warm-up /
+  reclaim-on-hide / readiness state (stop loading Filament 100% eagerly); **Phase E = device
+  capability detection** — first-launch splash probes Filament feature level → `zero/low/high`
+  tier, cached, gates the experience. See PROJECT_CONTEXT §3 Phases C–E.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.
