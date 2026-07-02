@@ -19,8 +19,8 @@ dopamine, not a bolted-on demo. The full app (collections, store, tabs) turned o
 ## Delivery tiers
 | Tier | What it is | Loot | Focus |
 |---|---|---|---|
-| **preMVP** ← next | Splash → one hero button → **3D box-open reveal** | existing **holo card** | Filament **animation** on the current pipeline |
-| **MVP** | Import real **gun models + textures**; maybe RNG/rarity | glTF **guns** | Filament **asset pipeline** (gltfio) |
+| **preMVP** ✅ **DONE** | Splash → one hero button → **3D box-open reveal** | existing **holo card** | Filament **animation** on the current pipeline |
+| **MVP** ← next | Import real **gun models + textures**; maybe RNG/rarity | glTF **guns** | Filament **asset pipeline** (gltfio) |
 | **MVP+** | Full app: Cases + Inventory, 3 tabs, economy | guns/cards | app architecture + Phases C/D/E |
 
 Design specifics below (choreography, rarity ladder, mood) are the current **POV** — solid
@@ -28,9 +28,13 @@ defaults, flippable as we iterate.
 
 ---
 
-## preMVP — Filament reveal attraction (the next target)
+## preMVP — Filament reveal attraction ✅ DELIVERED (Android + iOS, owner-approved)
 Minimal shell, maximum 3D. Proves box-open animation + reveal choreography on the pipeline we
-**already have** — no asset import, no app architecture.
+**already have** — no asset import, no app architecture. Shipped exactly as scoped: procedural box
+(two half-cubes + seam glow), card rises + one auto-spin, drag-to-inspect. Navigation landed on
+**Navigation 3** (back-stack-as-state), the choreography is a pure shared state machine (`reveal/`),
+and the reveal-only engine mount gives lazy start/teardown for free. Implementation detail lives in
+[`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md).
 
 **Flow**
 - **Splash → Home:** one screen, mostly empty, with a single **large hero button** ("OPEN") in a

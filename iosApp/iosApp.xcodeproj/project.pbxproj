@@ -38,8 +38,6 @@
 		};
 		CC5322CC5319556CDC0488CB /* Configuration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = Configuration;
 			sourceTree = "<group>";
 		};
@@ -90,7 +88,6 @@
 				D0F0C5B91B36DB3857939ECC /* Pods-iosApp.debug.xcconfig */,
 				8BF86935E761FFBDB75D6925 /* Pods-iosApp.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};

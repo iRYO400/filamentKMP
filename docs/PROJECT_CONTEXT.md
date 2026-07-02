@@ -94,6 +94,11 @@ Candidate companion items (decide scope when the phase starts):
 - Revisit source-set/package naming and the iOS bridge packaging against the new guidance.
 Constraint: the interop seam must survive the module split — `sharedLogic` must not gain a
 Compose or platform dependency, or the whole point is lost.
+- **preMVP progress toward this (2026-07):** the new `app/` (Nav3 nav: `Screen`/`AppState`/
+  `AppReducer`/`AppController`) and `reveal/` **core** (`RevealState`/`RevealReducer`/`RevealVisuals`
+  /`RevealController`) packages were written **Compose- and engine-free from the start**, so the
+  eventual `sharedLogic` extraction is now mostly mechanical (move `app/` + the reveal core + `scene`
+  core; leave `*Stage`/`*Screen`/`*Scene`/renderers in `sharedUI`).
 
 **Phase D — Engine lifecycle: lazy-load & warm-up** (BACKLOG — separate phase, not now):
 Goal: stop loading Filament 100% eagerly. Today the engine is built synchronously the instant
@@ -127,9 +132,21 @@ Seam impact (decide when the phase starts): the `expect CardScene` signature and
 `CardController` gain a start/readiness concept. This is the same seam Phase C splits into
 `sharedLogic`/`sharedUI`, so the D4 readiness contract must live in `sharedLogic` with no platform
 dependency — **sequence D after (or alongside) Phase C**, and don't let the lifecycle contract
-re-couple the core to a platform. Prerequisite for demoing lazy-load on-device: a minimal
-multi-screen/tab host exists nowhere today — building one is out of scope for this entry and
-decided when D starts.
+re-couple the core to a platform.
+- **preMVP already previews D1 + D3 for free (2026-07):** the multi-screen host now exists (Nav3
+  `NavDisplay`, `App.kt`), and 3D mounts **only on the Reveal entry** — so the reveal engine is
+  created on entry (D1 lazy-start) and destroyed on exit via composition `onDispose` (D3 teardown),
+  with **no** warm-up (D2) yet. "Open again" resets choreography state in place (no unmount) to
+  avoid engine churn.
+- **preMVP also ships a D4-lite readiness fade (2026-07):** `RevealScene` reports its first rendered
+  frame back through the seam (an `onReady: () -> Unit` callback — no engine types leak into the
+  shared state, honouring the D4 constraint); `RevealScreen` keeps an opaque "Loading…" cover and
+  holds the choreography clock until `onReady` **and** ≥400 ms, then `AnimatedVisibility` cross-fades
+  it away. This hides the synchronous engine-create hitch + blank first frame. **Android Reveal was
+  switched `SurfaceView → TextureView`** so Nav3 enter/exit transitions composite/animate smoothly
+  (SurfaceView black-flashed on exit; iOS `MTKView` composited fine already). So Phase D's remaining
+  real work is **D2 (warm-up)** + **async teardown** + promoting the `onReady` callback into a proper
+  `Idle→WarmingUp→Ready→Paused` **readiness enum in the shared core** — not D1/D3/D4 plumbing.
 
 **Phase E — Device capability detection & tiering (splash gate)** (BACKLOG — separate phase, not now):
 Goal: on **first launch**, a splash screen probes what Filament can actually do on *this* device,

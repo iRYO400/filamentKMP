@@ -1,45 +1,47 @@
 package com.sadvakassov.filament.kmp
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import com.sadvakassov.filament.kmp.scene.CardController
-import com.sadvakassov.filament.kmp.scene.CardStage
-import com.sadvakassov.filament.kmp.ui.CardHud
+import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.ui.NavDisplay
+import com.sadvakassov.filament.kmp.app.AppController
+import com.sadvakassov.filament.kmp.app.Screen
+import com.sadvakassov.filament.kmp.reveal.RevealScreen
+import com.sadvakassov.filament.kmp.ui.HomeScreen
+import com.sadvakassov.filament.kmp.ui.SplashScreen
 
 /**
- * Root of the demo. Owns the single [CardController] and composes:
- *  - [CardStage]  — the 3D surface + shared gestures + frame loop,
- *  - [CardHud]    — the Compose overlay bound to the same state.
+ * Composition root. Hosts Navigation 3's [NavDisplay], driven by [AppController]'s back stack —
+ * the single source of truth. Nav3 owns no competing navigation state: it renders our list and
+ * routes its back events straight back into the reducer via [AppController.onBack].
  *
- * Everything here is shared (commonMain); only [CardStage]'s `CardScene` differs per platform.
+ * Each screen is mounted only while it's on the back stack, so the (future) Filament engine on the
+ * Reveal screen is created on entry and destroyed on exit — lazy start/teardown for free.
  */
 @Composable
 @Preview
 fun App() {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        val controller = remember { CardController() }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF0E0E14)),
-        ) {
-            CardStage(controller, Modifier.fillMaxSize())
-            CardHud(
-                controller = controller,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .safeContentPadding(),
-            )
-        }
+        val appController = remember { AppController() }
+        val appState by appController.state.collectAsState()
+
+        NavDisplay(
+            backStack = appState.backStack,
+            onBack = { appController.onBack() },
+            entryProvider = { screen ->
+                NavEntry(screen) {
+                    when (screen) {
+                        Screen.Splash -> SplashScreen(onDone = appController::onSplashComplete)
+                        Screen.Home -> HomeScreen(onOpen = appController::onOpen)
+                        Screen.Reveal -> RevealScreen(onBack = appController::onBack)
+                    }
+                }
+            },
+        )
     }
 }

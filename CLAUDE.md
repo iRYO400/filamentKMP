@@ -14,11 +14,10 @@ phase, not abandoned**. Success = "I understand every seam and can reuse it by s
 scene", not "a pretty card".
 
 **End-goal product (what the backlog climbs toward):** a free **case-opening simulator** —
-payoff = a real 3D reveal on this pipeline. Tiered delivery; **next = preMVP**: splash → one
-big hero button → a **3D box-open** where a *procedural* lootbox opens and the *existing* holo
-card rises out to inspect. Pure showcase (no tabs/lists/RNG/economy) — exercises Filament
-animation, not app architecture. MVP = real glTF gun models (Phase B1); MVP+ = full app (Cases
-+ Inventory, 3 tabs). Concept + backlog↔product map: [`docs/PRODUCT.md`](docs/PRODUCT.md).
+payoff = a real 3D reveal on this pipeline. Tiered delivery; **preMVP = DONE** (splash → hero
+button → procedural 3D box-open → holo card rises + inspect, on Android *and* iOS). **Next = MVP**:
+real glTF gun models (Phase B1); MVP+ = full app (Cases + Inventory, 3 tabs). Concept +
+backlog↔product map: [`docs/PRODUCT.md`](docs/PRODUCT.md).
 
 ## Current status (read this first)
 - **Phase A / A1 — DONE.** Skeleton + architecture; gestures, shared state, frame loop,
@@ -48,12 +47,42 @@ animation, not app architecture. MVP = real glTF gun models (Phase B1); MVP+ = f
 - **iOS lifecycle — wired.** `FilamentCardView` observes `UIApplication` background/foreground
   notifications and toggles `MTKView.paused` (iOS counterpart of Android's ON_PAUSE/ON_RESUME;
   also avoids Metal rendering to a backgrounded layer). Observers removed in `dispose`.
+- **🎉 preMVP — DONE & confirmed on BOTH platforms (owner-approved feel).** Splash → Home (one
+  OPEN hero button) → **Reveal**: a *procedural* 3D lootbox (two half-cubes + seam-glow quad,
+  runtime UNLIT material) plays the open choreography → the existing holo card rises out + one
+  auto-spin → drag-to-inspect (reuses A3 flick-to-spin, **no seeding** via the 2π-spin trick).
+  Architecture reuses the card idiom twice more, all seam-clean:
+  - **Navigation = Navigation 3** (JetBrains CMP port `org.jetbrains.androidx.navigation3`, alpha).
+    "The back stack is your state" → nav lives in `app/AppState.backStack` (pure, no Compose),
+    mutated by `AppReducer`, held by `AppController`; `App.kt` hosts `NavDisplay` and routes Nav3
+    back-events into the reducer. Chosen over Decompose/Voyager for single-source-of-truth
+    coherence + scale. `NavDisplay.onBack` is `() -> Unit` in this version.
+  - **Choreography = shared state machine** in `reveal/` (`RevealPhase`/`RevealState`/`RevealReducer`
+    /`RevealVisuals`/`RevealController`), pure + time-stepped, unit-tested; `visuals(s)` derives all
+    render channels so both renderers stay dumb. `RevealStage` runs one frame loop (choreography →
+    hands the clock to `CardController` at Inspect) with gestures gated on inspect.
+  - **Renderers:** Android `reveal/RevealRenderer.kt`; iOS `RevealCardView.mm` (Metal) via a
+    `RevealSceneBridge`. Both read the *same* `RevealReducer.visuals`. iOS geometry/colour constants
+    are **hand-synced** with `RevealRenderer.kt` (accepted duplication — no shared mesh layer) → tune
+    both when changing feel. **iOS gotcha (fixed):** Filament uploads buffers async without copying —
+    vertex data must outlive the upload; heap-copy + `releaseBuffer` callback (a stack-local array
+    left the box invisible while the `static` card quad rendered).
+  - **Phase-D preview (D1 + D3 + D4-lite):** 3D mounts only on the Nav3 Reveal entry → engine
+    created on enter, destroyed on exit (D1 lazy-start + D3 teardown for free). **Load smoothing:**
+    `RevealScene` reports its first rendered frame back through the seam (`onReady` callback — no
+    engine types in shared state); `RevealScreen` holds an opaque "Loading…" cover + gates the
+    choreography clock until `onReady` **and** ≥400 ms, then `AnimatedVisibility` cross-fades it away
+    (hides the engine-create hitch + blank first frame + start-behind-loader). **Android Reveal uses
+    `TextureView`, not `SurfaceView`** — it composites in the view tree so Nav3 enter/exit transitions
+    animate smoothly (SurfaceView black-flashed on exit; iOS `MTKView` was already smooth). Still
+    missing for full Phase D: warm-up (D2) + async teardown + a real readiness enum (`onDispose`
+    destroy is still synchronous).
 - **Next (backlog, not started):** Phase B = visual (glTF/PBR/holographic); **Phase C =
-  architecture hardening** — adopt JetBrains' May-2026 KMP structure (split `shared` →
-  `sharedLogic` + `sharedUI`); **Phase D = engine lifecycle** — lazy-load / warm-up /
-  reclaim-on-hide / readiness state (stop loading Filament 100% eagerly); **Phase E = device
-  capability detection** — first-launch splash probes Filament feature level → `zero/low/high`
-  tier, cached, gates the experience. See PROJECT_CONTEXT §3 Phases C–E.
+  architecture hardening** — split `shared` → `sharedLogic` + `sharedUI` (the `app/` + `reveal/`
+  core packages are already Compose-free, so the split is mechanical); **Phase D = engine
+  lifecycle** — formalize the readiness state / warm-up (preMVP already previews lazy-start);
+  **Phase E = device capability detection** — the Splash beat is the seat for the feature-level
+  probe → `zero/low/high` tier. See PROJECT_CONTEXT §3 Phases C–E.
 
 ## Hard environment facts
 - The owner builds/runs in **Android Studio / IntelliJ on macOS**.
@@ -73,26 +102,29 @@ animation, not app architecture. MVP = real glTF gun models (Phase B1); MVP+ = f
 - Harmless noise on a working build: `[CXX1101] NDK ... ndk-bundle did not have a
   source.properties file` (empty `ndk-bundle` dir) — doesn't fail the build.
 
-## Build & run (Android)
+## Build & run
 ```bash
-./gradlew :androidApp:installDebug      # or use the IDE run button
+./gradlew :androidApp:installDebug      # Android — or use the IDE run button
 ```
-iOS target exists in Gradle but needs Xcode + network (Kotlin/Native dist) — skip for now.
+iOS: open `iosApp/iosApp.xcworkspace` in Xcode and run (needs Xcode + network for the Kotlin/Native
+dist). Headless check: `xcodebuild -workspace iosApp/iosApp.xcworkspace -scheme iosApp -sdk
+iphonesimulator -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
 
 ## Architecture at a glance
 ```
 commonMain  → state + logic + Compose UI (the reusable core)
-  CardState        immutable snapshot (yaw/pitch/scale/isPressed)
-  CardReducer      pure state transitions + per-frame physics
-  CardController   StateFlow holder; UI & renderer both use it
-  CardStage        gestures (drag/tap) + withFrameNanos tick + hosts CardScene
-  CardHud          Compose overlay, two-way bound to the same state
-  expect CardScene(controller, modifier)   ← the platform seam
-androidMain → actual CardScene = AndroidView( SurfaceView )    [A2: real Filament — DONE]
-iosMain     → actual CardScene = UIKitView( native UIView )   [placeholder; not built yet]
+  app/       Screen · AppState(backStack) · AppReducer · AppController   [Nav3, no Compose]
+  scene/     CardState · CardReducer · CardController · CardStage · expect CardScene   [card pipeline]
+  reveal/    RevealState/Phase · RevealReducer · RevealVisuals · RevealController      [box-open logic]
+             RevealStage · RevealScreen · expect RevealScene                            [reveal Compose]
+  ui/        SplashScreen · HomeScreen · CardHud
+  App.kt     Nav3 NavDisplay host (backStack = AppState, back → AppController.onBack)
+androidMain → actual CardScene / RevealScene = AndroidView( SurfaceView + Filament )   [DONE]
+iosMain     → actual CardScene / RevealScene = UIKitView( native MTKView ) via *SceneBridge   [DONE]
 ```
-Data flow: **gesture → CardController (StateFlow) → renderer reads snapshot each frame**.
-Gestures are captured in shared code (not the native view) so one state drives 3D *and* UI.
+Data flow (unchanged for all three): **gesture/tick → Controller (StateFlow) → renderer reads
+snapshot each frame**. Reducers are pure + unit-tested; renderers only *read*. `app/` + `reveal/`
+core stay Compose/engine-free (Phase-C-ready). `commonMain` never sees Filament — that's the seam.
 
 ## Key files
 | Path | Role |
@@ -103,9 +135,11 @@ Gestures are captured in shared code (not the native view) so one state drives 3
 | `shared/src/commonMain/.../scene/CardStage.kt` | gestures + frame loop |
 | `shared/src/commonMain/.../scene/CardScene.kt` | `expect` platform surface |
 | `shared/src/commonMain/.../ui/CardHud.kt` | Compose overlay (UI↔3D) |
-| `shared/src/androidMain/.../scene/CardScene.android.kt` | Android actual — hosts Filament `SurfaceView` + engine lifecycle |
-| `shared/src/androidMain/.../scene/FilamentRenderer.kt` | A2 real Filament renderer (Engine, quad, runtime material, frame loop) |
-| `shared/src/iosMain/.../scene/CardScene.ios.kt` | iOS actual (placeholder, unbuilt) |
+| `shared/src/androidMain/.../scene/FilamentRenderer.kt` | A2 card Filament renderer (Engine, quad, runtime material, frame loop) |
+| `shared/src/androidMain/.../reveal/RevealRenderer.kt` | reveal renderer — procedural box + card, driven by `RevealVisuals`/`CardState` |
+| `iosApp/iosApp/filament/{FilamentCardView,RevealCardView}.mm` | iOS Metal shims (card + reveal), injected via `*SceneBridge` |
+| `shared/src/commonMain/.../{app,reveal}/*.kt` | Nav3 nav core + reveal choreography (pure, Phase-C-ready) |
+| `shared/src/commonTest/.../{AppReducerTest,RevealReducerTest}.kt` | nav + choreography unit tests |
 
 ## Conventions
 - All `CardState` changes go through `CardReducer` pure functions — keep `CardController` thin.
@@ -116,6 +150,7 @@ Gestures are captured in shared code (not the native view) so one state drives 3
 
 ## Stack / versions
 Kotlin 2.4.0 · Compose MP 1.11.1 · AGP 9.0.1 (`com.android.kotlin.multiplatform.library`) ·
-minSdk 24 · package `com.sadvakassov.filament.kmp` · Filament **1.72.0** (live on Android: GL
-backend, runtime material via `filamat`) · iOS via CocoaPods + Metal (later).
-New interop API: `androidx.compose.ui.viewinterop.UIKitView`.
+minSdk 24 · package `com.sadvakassov.filament.kmp` · Filament **1.72.0** (Android: GL backend +
+runtime material via `filamat`; iOS: Metal via CocoaPods `pod 'Filament'`) · **Navigation 3**
+`org.jetbrains.androidx.navigation3:navigation3-ui` **1.1.0-alpha01** (CMP port, alpha — re-pin on
+any Compose MP bump). Interop: `androidx.compose.ui.viewinterop.UIKitView` / `AndroidView`.
